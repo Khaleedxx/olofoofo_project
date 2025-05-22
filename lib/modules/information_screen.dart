@@ -103,6 +103,7 @@ class InformationScreen extends StatelessWidget {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Color(0xFF006D77),
                   minimumSize: Size(double.infinity, 50),
+                  foregroundColor: Color(0xFFFFFFFF),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8),
                   ),
@@ -114,7 +115,9 @@ class InformationScreen extends StatelessWidget {
                 children: [
                   Text('Already have an account? '),
                   TextButton(
-                    onPressed: () {},
+                    onPressed: () {
+                      Navigator.pushNamed(context, '/sign_in');
+                    },
                     child: Text(
                       'Sign In',
                       style: TextStyle(color: Color(0xFF006D77)),

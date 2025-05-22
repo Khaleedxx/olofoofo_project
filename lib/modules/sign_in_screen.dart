@@ -1,19 +1,17 @@
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
 
-class SignupScreen extends StatefulWidget {
-  const SignupScreen({Key? key}) : super(key: key);
+class SignInScreen extends StatefulWidget {
+  const SignInScreen({Key? key}) : super(key: key);
 
   @override
-  State<SignupScreen> createState() => _SignupScreenState();
+  State<SignInScreen> createState() => _SignInScreenState();
 }
 
-class _SignupScreenState extends State<SignupScreen> {
+class _SignInScreenState extends State<SignInScreen> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  final _usernameController = TextEditingController();
-  final _fullNameController = TextEditingController();
 
   final AuthService _authService = AuthService();
 
@@ -24,12 +22,10 @@ class _SignupScreenState extends State<SignupScreen> {
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
-    _usernameController.dispose();
-    _fullNameController.dispose();
     super.dispose();
   }
 
-  Future<void> _signup() async {
+  Future<void> _signIn() async {
     if (!_formKey.currentState!.validate()) {
       return;
     }
@@ -39,11 +35,9 @@ class _SignupScreenState extends State<SignupScreen> {
       _errorMessage = null;
     });
 
-    final result = await _authService.signUp(
+    final result = await _authService.signIn(
       email: _emailController.text.trim(),
       password: _passwordController.text,
-      username: _usernameController.text.trim(),
-      fullName: _fullNameController.text.trim(),
     );
 
     setState(() {
@@ -51,7 +45,7 @@ class _SignupScreenState extends State<SignupScreen> {
     });
 
     if (result.isSuccess) {
-      // Navigate to home or welcome screen
+      // Navigate to home screen
       Navigator.pushReplacementNamed(context, '/welcome');
     } else {
       setState(() {
@@ -74,7 +68,7 @@ class _SignupScreenState extends State<SignupScreen> {
               children: [
                 const SizedBox(height: 40),
                 const Text(
-                  'Create Account',
+                  'Welcome Back',
                   style: TextStyle(
                     fontSize: 28,
                     fontWeight: FontWeight.bold,
@@ -83,54 +77,13 @@ class _SignupScreenState extends State<SignupScreen> {
                 ),
                 const SizedBox(height: 10),
                 const Text(
-                  'Sign up to get started with OFOFO',
+                  'Sign in to continue',
                   style: TextStyle(
                     fontSize: 16,
                     color: Colors.grey,
                   ),
                 ),
                 const SizedBox(height: 40),
-
-                // Full Name Field
-                TextFormField(
-                  controller: _fullNameController,
-                  decoration: InputDecoration(
-                    labelText: 'Full Name',
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    prefixIcon: const Icon(Icons.person),
-                  ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please enter your full name';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 20),
-
-                // Username Field
-                TextFormField(
-                  controller: _usernameController,
-                  decoration: InputDecoration(
-                    labelText: 'Username',
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    prefixIcon: const Icon(Icons.alternate_email),
-                  ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please enter a username';
-                    }
-                    if (value.contains(' ')) {
-                      return 'Username cannot contain spaces';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 20),
 
                 // Email Field
                 TextFormField(
@@ -145,11 +98,7 @@ class _SignupScreenState extends State<SignupScreen> {
                   ),
                   validator: (value) {
                     if (value == null || value.isEmpty) {
-                      return 'Please enter an email address';
-                    }
-                    if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$')
-                        .hasMatch(value)) {
-                      return 'Please enter a valid email address';
+                      return 'Please enter your email';
                     }
                     return null;
                   },
@@ -169,15 +118,27 @@ class _SignupScreenState extends State<SignupScreen> {
                   ),
                   validator: (value) {
                     if (value == null || value.isEmpty) {
-                      return 'Please enter a password';
-                    }
-                    if (value.length < 6) {
-                      return 'Password must be at least 6 characters';
+                      return 'Please enter your password';
                     }
                     return null;
                   },
                 ),
-                const SizedBox(height: 20),
+
+                // Forgot Password Link
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton(
+                    onPressed: () {
+                      Navigator.pushNamed(context, '/forgot_password');
+                    },
+                    child: const Text(
+                      'Forgot Password?',
+                      style: TextStyle(color: Color(0xFF006D77)),
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 10),
 
                 // Error Message
                 if (_errorMessage != null)
@@ -193,14 +154,14 @@ class _SignupScreenState extends State<SignupScreen> {
                     ),
                   ),
 
-                const SizedBox(height: 30),
+                const SizedBox(height: 20),
 
-                // Sign Up Button
+                // Sign In Button
                 SizedBox(
                   width: double.infinity,
                   height: 50,
                   child: ElevatedButton(
-                    onPressed: _isLoading ? null : _signup,
+                    onPressed: _isLoading ? null : _signIn,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF006D77),
                       foregroundColor: Colors.white,
@@ -214,7 +175,7 @@ class _SignupScreenState extends State<SignupScreen> {
                                 AlwaysStoppedAnimation<Color>(Colors.white),
                           )
                         : const Text(
-                            'Create Account',
+                            'Sign In',
                             style: TextStyle(fontSize: 16),
                           ),
                   ),
@@ -222,17 +183,17 @@ class _SignupScreenState extends State<SignupScreen> {
 
                 const SizedBox(height: 20),
 
-                // Login Link
+                // Sign Up Link
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Text('Already have an account?'),
+                    const Text('Don\'t have an account?'),
                     TextButton(
                       onPressed: () {
-                        Navigator.pushReplacementNamed(context, '/sign_in');
+                        Navigator.pushReplacementNamed(context, '/signup');
                       },
                       child: const Text(
-                        'Sign In',
+                        'Sign Up',
                         style: TextStyle(color: Color(0xFF006D77)),
                       ),
                     ),
