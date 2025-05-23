@@ -1,21 +1,35 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'dart:async';
 import '../models/chat_models.dart';
 
 class ChatService {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  // Singleton instance
+  static final ChatService _instance = ChatService._internal();
+  factory ChatService() => _instance;
+  ChatService._internal();
+
+  // Mock chat data storage
+  final Map<String, List<Message>> _chats = {};
+
+  // Mock message controllers for streams
+  final Map<String, StreamController<List<Message>>> _controllers = {};
 
   Stream<List<Message>> getMessages(String currentUserId, String otherUserId) {
     final chatId = _getChatId(currentUserId, otherUserId);
 
-    return _firestore
-        .collection('chats')
-        .doc(chatId)
-        .collection('messages')
-        .orderBy('timestamp', descending: true)
-        .snapshots()
-        .map((snapshot) {
-      return snapshot.docs.map((doc) => Message.fromMap(doc.data())).toList();
-    });
+    // Create controller if it doesn't exist
+    if (!_controllers.containsKey(chatId)) {
+      _controllers[chatId] = StreamController<List<Message>>.broadcast();
+
+      // Initialize with empty list if no messages exist
+      if (!_chats.containsKey(chatId)) {
+        _chats[chatId] = [];
+      }
+
+      // Add initial data
+      _controllers[chatId]!.add(_chats[chatId]!);
+    }
+
+    return _controllers[chatId]!.stream;
   }
 
   Future<void> sendMessage(
@@ -24,7 +38,7 @@ class ChatService {
     String content,
   ) async {
     final chatId = _getChatId(senderId, receiverId);
-    final messageId = _firestore.collection('chats').doc().id;
+    final messageId = DateTime.now().millisecondsSinceEpoch.toString();
 
     final message = Message(
       id: messageId,
@@ -34,12 +48,18 @@ class ChatService {
       timestamp: DateTime.now(),
     );
 
-    await _firestore
-        .collection('chats')
-        .doc(chatId)
-        .collection('messages')
-        .doc(messageId)
-        .set(message.toMap());
+    // Initialize chat if it doesn't exist
+    if (!_chats.containsKey(chatId)) {
+      _chats[chatId] = [];
+    }
+
+    // Add message to chat
+    _chats[chatId]!.insert(0, message);
+
+    // Notify listeners if controller exists
+    if (_controllers.containsKey(chatId)) {
+      _controllers[chatId]!.add(_chats[chatId]!);
+    }
   }
 
   String _getChatId(String userId1, String userId2) {

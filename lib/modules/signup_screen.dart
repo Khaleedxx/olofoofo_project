@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
+import '../utils/validators.dart';
 
 class SignupScreen extends StatefulWidget {
   const SignupScreen({Key? key}) : super(key: key);
@@ -14,11 +15,22 @@ class _SignupScreenState extends State<SignupScreen> {
   final _passwordController = TextEditingController();
   final _usernameController = TextEditingController();
   final _fullNameController = TextEditingController();
+  final _firstNameController = TextEditingController();
+  final _lastNameController = TextEditingController();
+  final _phoneController = TextEditingController();
 
   final AuthService _authService = AuthService();
 
   bool _isLoading = false;
   String? _errorMessage;
+  bool _obscurePassword = true;
+  String _selectedGender = 'Prefer not to say';
+  final List<String> _genderOptions = [
+    'Male',
+    'Female',
+    'Other',
+    'Prefer not to say'
+  ];
 
   @override
   void dispose() {
@@ -26,6 +38,9 @@ class _SignupScreenState extends State<SignupScreen> {
     _passwordController.dispose();
     _usernameController.dispose();
     _fullNameController.dispose();
+    _firstNameController.dispose();
+    _lastNameController.dispose();
+    _phoneController.dispose();
     super.dispose();
   }
 
@@ -39,25 +54,109 @@ class _SignupScreenState extends State<SignupScreen> {
       _errorMessage = null;
     });
 
-    final result = await _authService.signUp(
-      email: _emailController.text.trim(),
-      password: _passwordController.text,
-      username: _usernameController.text.trim(),
-      fullName: _fullNameController.text.trim(),
-    );
-
-    setState(() {
-      _isLoading = false;
-    });
-
-    if (result.isSuccess) {
-      // Navigate to home or welcome screen
-      Navigator.pushReplacementNamed(context, '/welcome');
-    } else {
-      setState(() {
-        _errorMessage = result.error;
-      });
+    // Combine first and last name for full name if not provided
+    String fullName = _fullNameController.text.trim();
+    if (fullName.isEmpty && _firstNameController.text.isNotEmpty) {
+      fullName =
+          '${_firstNameController.text.trim()} ${_lastNameController.text.trim()}';
     }
+
+    try {
+      final result = await _authService.signUp(
+        email: _emailController.text.trim(),
+        password: _passwordController.text,
+        username: _usernameController.text.trim(),
+        fullName: fullName,
+        firstName: _firstNameController.text.trim(),
+        lastName: _lastNameController.text.trim(),
+        phoneNumber: _phoneController.text.trim(),
+        gender: _selectedGender != 'Prefer not to say' ? _selectedGender : null,
+      );
+
+      setState(() {
+        _isLoading = false;
+      });
+
+      if (result.isSuccess) {
+        // Show success message
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Account created successfully!'),
+            backgroundColor: Colors.green,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+
+        // Navigate to home or welcome screen
+        Navigator.pushReplacementNamed(context, '/home');
+      } else {
+        setState(() {
+          _errorMessage = result.error;
+        });
+
+        // Show error message
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(result.error ?? 'An error occurred'),
+            backgroundColor: Colors.red.shade800,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+
+        // If it's a configuration error, show more detailed message
+        if (result.error != null &&
+            (result.error!.contains('configuration-not-found') ||
+                result.error!.contains('not enabled') ||
+                result.error!.contains('API key'))) {
+          _showFirebaseConfigurationError(result.error!);
+        }
+      }
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+        _errorMessage = 'Unexpected error: ${e.toString()}';
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Unexpected error: ${e.toString()}'),
+          backgroundColor: Colors.red.shade800,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
+  void _showFirebaseConfigurationError(String error) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Firebase Configuration Error'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(error),
+            SizedBox(height: 16),
+            Text(
+              'Please ensure that:',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            SizedBox(height: 8),
+            Text(
+                '1. Email/Password authentication is enabled in the Firebase console'),
+            Text('2. The API key is correct in firebase_options.dart'),
+            Text('3. The Firebase project is properly set up'),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('OK'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -91,22 +190,48 @@ class _SignupScreenState extends State<SignupScreen> {
                 ),
                 const SizedBox(height: 40),
 
-                // Full Name Field
+                // First Name Field
                 TextFormField(
-                  controller: _fullNameController,
+                  controller: _firstNameController,
                   decoration: InputDecoration(
-                    labelText: 'Full Name',
+                    labelText: 'First Name',
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(10),
                     ),
                     prefixIcon: const Icon(Icons.person),
                   ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please enter your full name';
-                    }
-                    return null;
-                  },
+                  validator: (value) => Validators.validateName(value ?? ''),
+                  autovalidateMode: AutovalidateMode.onUserInteraction,
+                ),
+                const SizedBox(height: 20),
+
+                // Last Name Field
+                TextFormField(
+                  controller: _lastNameController,
+                  decoration: InputDecoration(
+                    labelText: 'Last Name',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    prefixIcon: const Icon(Icons.person),
+                  ),
+                  validator: (value) => Validators.validateName(value ?? ''),
+                  autovalidateMode: AutovalidateMode.onUserInteraction,
+                ),
+                const SizedBox(height: 20),
+
+                // Full Name Field (Optional)
+                TextFormField(
+                  controller: _fullNameController,
+                  decoration: InputDecoration(
+                    labelText: 'Full Name (Optional)',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    prefixIcon: const Icon(Icons.person),
+                    hintText: 'Or we\'ll combine first and last name',
+                  ),
+                  autovalidateMode: AutovalidateMode.onUserInteraction,
                 ),
                 const SizedBox(height: 20),
 
@@ -120,15 +245,9 @@ class _SignupScreenState extends State<SignupScreen> {
                     ),
                     prefixIcon: const Icon(Icons.alternate_email),
                   ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please enter a username';
-                    }
-                    if (value.contains(' ')) {
-                      return 'Username cannot contain spaces';
-                    }
-                    return null;
-                  },
+                  validator: (value) =>
+                      Validators.validateUsername(value ?? ''),
+                  autovalidateMode: AutovalidateMode.onUserInteraction,
                 ),
                 const SizedBox(height: 20),
 
@@ -143,15 +262,51 @@ class _SignupScreenState extends State<SignupScreen> {
                     ),
                     prefixIcon: const Icon(Icons.email),
                   ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please enter an email address';
+                  validator: (value) => Validators.validateEmail(value ?? ''),
+                  autovalidateMode: AutovalidateMode.onUserInteraction,
+                ),
+                const SizedBox(height: 20),
+
+                // Phone Number Field
+                TextFormField(
+                  controller: _phoneController,
+                  keyboardType: TextInputType.phone,
+                  decoration: InputDecoration(
+                    labelText: 'Phone Number (Optional)',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    prefixIcon: const Icon(Icons.phone),
+                  ),
+                  validator: (value) => value != null && value.isNotEmpty
+                      ? Validators.validatePhone(value)
+                      : null,
+                  autovalidateMode: AutovalidateMode.onUserInteraction,
+                ),
+                const SizedBox(height: 20),
+
+                // Gender Selection
+                DropdownButtonFormField<String>(
+                  decoration: InputDecoration(
+                    labelText: 'Gender',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    prefixIcon: const Icon(Icons.people),
+                  ),
+                  value: _selectedGender,
+                  items: _genderOptions.map((String gender) {
+                    return DropdownMenuItem<String>(
+                      value: gender,
+                      child: Text(gender),
+                    );
+                  }).toList(),
+                  onChanged: (String? newValue) {
+                    if (newValue != null) {
+                      setState(() {
+                        _selectedGender = newValue;
+                      });
                     }
-                    if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$')
-                        .hasMatch(value)) {
-                      return 'Please enter a valid email address';
-                    }
-                    return null;
                   },
                 ),
                 const SizedBox(height: 20),
@@ -159,23 +314,29 @@ class _SignupScreenState extends State<SignupScreen> {
                 // Password Field
                 TextFormField(
                   controller: _passwordController,
-                  obscureText: true,
+                  obscureText: _obscurePassword,
                   decoration: InputDecoration(
                     labelText: 'Password',
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(10),
                     ),
                     prefixIcon: const Icon(Icons.lock),
+                    suffixIcon: IconButton(
+                      onPressed: () {
+                        setState(() {
+                          _obscurePassword = !_obscurePassword;
+                        });
+                      },
+                      icon: Icon(
+                        _obscurePassword
+                            ? Icons.visibility
+                            : Icons.visibility_off,
+                      ),
+                    ),
                   ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please enter a password';
-                    }
-                    if (value.length < 6) {
-                      return 'Password must be at least 6 characters';
-                    }
-                    return null;
-                  },
+                  validator: (value) =>
+                      Validators.validatePassword(value ?? ''),
+                  autovalidateMode: AutovalidateMode.onUserInteraction,
                 ),
                 const SizedBox(height: 20),
 

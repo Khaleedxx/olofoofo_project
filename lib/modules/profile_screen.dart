@@ -1,0 +1,591 @@
+import 'package:flutter/material.dart';
+import '../services/auth_service.dart';
+import '../models/user_model.dart';
+import '../models/firebase_db_model.dart';
+import 'package:intl/intl.dart';
+
+class ProfileScreen extends StatefulWidget {
+  const ProfileScreen({Key? key}) : super(key: key);
+
+  @override
+  State<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends State<ProfileScreen>
+    with SingleTickerProviderStateMixin {
+  late TabController _tabController;
+  final AuthService _authService = AuthService();
+  final FirebaseDbModel _dbModel = FirebaseDbModel();
+  bool _isLoading = true;
+  UserModel? _currentUser;
+
+  // Mock posts data
+  final List<Map<String, dynamic>> _posts = [
+    {
+      'imageUrl':
+          'https://images.unsplash.com/photo-1593642632823-8f785ba67e45?q=80&w=1332&auto=format&fit=crop',
+      'likes': 124,
+      'comments': 32,
+    },
+    {
+      'imageUrl':
+          'https://images.unsplash.com/photo-1540189549336-e6e99c3679fe?q=80&w=1287&auto=format&fit=crop',
+      'likes': 89,
+      'comments': 15,
+    },
+    {
+      'imageUrl':
+          'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?q=80&w=1473&auto=format&fit=crop',
+      'likes': 247,
+      'comments': 57,
+    },
+    {
+      'imageUrl':
+          'https://images.unsplash.com/photo-1526779259212-939e64788e3c?q=80&w=1374&auto=format&fit=crop',
+      'likes': 185,
+      'comments': 24,
+    },
+    {
+      'imageUrl':
+          'https://images.unsplash.com/photo-1511988617509-a57c8a288659?q=80&w=1471&auto=format&fit=crop',
+      'likes': 302,
+      'comments': 41,
+    },
+    {
+      'imageUrl':
+          'https://images.unsplash.com/photo-1511920170033-f8396924c348?q=80&w=1374&auto=format&fit=crop',
+      'likes': 156,
+      'comments': 19,
+    },
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 3, vsync: this);
+    _loadUserData();
+  }
+
+  Future<void> _loadUserData() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      // Get current user from AuthService
+      final currentUser = _authService.currentUser;
+      if (currentUser != null) {
+        // Get full user model from database
+        final userModel = await _dbModel.getUserFromDb(currentUser.uid);
+
+        if (mounted) {
+          setState(() {
+            _currentUser = userModel;
+            _isLoading = false;
+          });
+        }
+      } else {
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+          });
+        }
+      }
+    } catch (e) {
+      print('Error loading user data: $e');
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  void _showProfileOptions(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => Container(
+        padding: const EdgeInsets.symmetric(vertical: 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 40,
+              height: 4,
+              margin: const EdgeInsets.only(bottom: 20),
+              decoration: BoxDecoration(
+                color: Colors.grey[300],
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+            _buildOptionTile(Icons.settings, 'Settings', () {
+              Navigator.pop(context);
+              // Navigate to settings page
+            }),
+            _buildOptionTile(Icons.bookmark_border, 'Saved', () {
+              Navigator.pop(context);
+              // Navigate to saved posts
+            }),
+            _buildOptionTile(Icons.history, 'Your Activity', () {
+              Navigator.pop(context);
+              // Navigate to activity history
+            }),
+            _buildOptionTile(Icons.qr_code, 'QR Code', () {
+              Navigator.pop(context);
+              // Show QR code
+            }),
+            _buildOptionTile(Icons.logout, 'Log Out', () {
+              Navigator.pop(context);
+              _showLogoutConfirmation();
+            }),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showLogoutConfirmation() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Log Out'),
+        content: const Text('Are you sure you want to log out?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              // Implement logout functionality
+              _authService.signOut().then((_) {
+                Navigator.pushReplacementNamed(context, '/sign_in');
+              });
+            },
+            child: const Text('Log Out', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _navigateToEditProfile() {
+    // Navigate to edit profile screen
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Edit Profile feature coming soon')),
+    );
+  }
+
+  Widget _buildOptionTile(IconData icon, String label, VoidCallback onTap) {
+    return ListTile(
+      leading: Icon(icon),
+      title: Text(label),
+      onTap: onTap,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const Scaffold(
+        body: Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
+    if (_currentUser == null) {
+      return Scaffold(
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Text('User not logged in'),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.pushReplacementNamed(context, '/sign_in');
+                },
+                child: const Text('Sign In'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return Scaffold(
+      backgroundColor: Colors.white,
+      appBar: AppBar(
+        elevation: 0,
+        backgroundColor: Colors.white,
+        title: Row(
+          children: [
+            Text(
+              _currentUser!.username,
+              style: const TextStyle(
+                color: Colors.black,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const Icon(Icons.keyboard_arrow_down, size: 16),
+          ],
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.add_box_outlined, color: Colors.black),
+            onPressed: () {
+              Navigator.pushNamed(context, '/add_status');
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.menu, color: Colors.black),
+            onPressed: () => _showProfileOptions(context),
+          ),
+        ],
+      ),
+      body: NestedScrollView(
+        headerSliverBuilder: (context, innerBoxIsScrolled) {
+          return [
+            SliverToBoxAdapter(
+              child: _buildProfileHeader(),
+            ),
+            SliverPersistentHeader(
+              delegate: _SliverAppBarDelegate(
+                TabBar(
+                  controller: _tabController,
+                  labelColor: Colors.black,
+                  unselectedLabelColor: Colors.grey,
+                  indicatorColor: Colors.black,
+                  tabs: const [
+                    Tab(icon: Icon(Icons.grid_on)),
+                    Tab(icon: Icon(Icons.video_collection_outlined)),
+                    Tab(icon: Icon(Icons.person_pin_outlined)),
+                  ],
+                ),
+              ),
+              pinned: true,
+            ),
+          ];
+        },
+        body: TabBarView(
+          controller: _tabController,
+          children: [
+            _buildPostsGrid(),
+            _buildReelsGrid(),
+            _buildTaggedGrid(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildProfileHeader() {
+    final profileImageUrl = _currentUser?.profileImageUrl ??
+        'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?q=80&w=1287&auto=format&fit=crop';
+
+    return Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 86,
+                height: 86,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: LinearGradient(
+                    colors: [
+                      Theme.of(context).primaryColor,
+                      Colors.purple,
+                      Colors.orange,
+                      Colors.pink,
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  border: Border.all(
+                    color: Colors.white,
+                    width: 2,
+                  ),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(3.0),
+                  child: CircleAvatar(
+                    radius: 40,
+                    backgroundImage: NetworkImage(profileImageUrl),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 24),
+              Expanded(
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    _buildStatColumn(
+                        _currentUser?.postsCount.toString() ?? '0', 'Posts'),
+                    _buildStatColumn(
+                        _currentUser?.followersCount.toString() ?? '0',
+                        'Followers'),
+                    _buildStatColumn(
+                        _currentUser?.followingCount.toString() ?? '0',
+                        'Following'),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Text(
+            _currentUser?.fullName ?? _currentUser!.username,
+            style: const TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 16,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            _currentUser?.bio ?? 'Hello! I am using OFOFO',
+            style: const TextStyle(fontSize: 14),
+          ),
+          const SizedBox(height: 16),
+          // Edit Profile button instead of Follow/Message
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: _navigateToEditProfile,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.white,
+                foregroundColor: Colors.black,
+                side: const BorderSide(color: Colors.grey),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                padding: const EdgeInsets.symmetric(vertical: 8),
+              ),
+              child: const Text('Edit Profile'),
+            ),
+          ),
+          const SizedBox(height: 16),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                _buildStoryHighlight('Travel',
+                    'https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?q=80&w=1421&auto=format&fit=crop'),
+                _buildStoryHighlight('Food',
+                    'https://images.unsplash.com/photo-1540189549336-e6e99c3679fe?q=80&w=1287&auto=format&fit=crop'),
+                _buildStoryHighlight('Tech',
+                    'https://images.unsplash.com/photo-1593642632823-8f785ba67e45?q=80&w=1332&auto=format&fit=crop'),
+                _buildStoryHighlight('Nature',
+                    'https://images.unsplash.com/photo-1501854140801-50d01698950b?q=80&w=1575&auto=format&fit=crop'),
+                _buildStoryHighlight('Friends',
+                    'https://images.unsplash.com/photo-1506869640319-fe1a24fd76dc?q=80&w=1470&auto=format&fit=crop'),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatColumn(String count, String label) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          count,
+          style: const TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 14,
+            color: Colors.black87,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStoryHighlight(String title, String imageUrl) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 16.0),
+      child: Column(
+        children: [
+          Container(
+            width: 65,
+            height: 65,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: Colors.grey.shade300,
+                width: 1,
+              ),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(2.0),
+              child: CircleAvatar(
+                backgroundImage: NetworkImage(imageUrl),
+              ),
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            title,
+            style: const TextStyle(fontSize: 12),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPostsGrid() {
+    return GridView.builder(
+      padding: const EdgeInsets.all(1),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 3,
+        crossAxisSpacing: 1,
+        mainAxisSpacing: 1,
+      ),
+      itemCount: _posts.length,
+      itemBuilder: (context, index) {
+        return GestureDetector(
+          onTap: () {
+            // Navigate to post detail
+          },
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              Image.network(
+                _posts[index]['imageUrl'],
+                fit: BoxFit.cover,
+              ),
+              if (_posts[index]['likes'] > 200)
+                Positioned(
+                  top: 8,
+                  right: 8,
+                  child: Icon(
+                    Icons.favorite,
+                    color: Colors.white,
+                    size: 16,
+                    shadows: [
+                      Shadow(
+                        blurRadius: 3.0,
+                        color: Colors.black.withOpacity(0.5),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildReelsGrid() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.video_collection_outlined,
+            size: 80,
+            color: Colors.grey[300],
+          ),
+          const SizedBox(height: 16),
+          const Text(
+            'No Reels Yet',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Reels you create will appear here',
+            style: TextStyle(
+              fontSize: 16,
+              color: Colors.grey[600],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTaggedGrid() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.person_pin_outlined,
+            size: 80,
+            color: Colors.grey[300],
+          ),
+          const SizedBox(height: 16),
+          const Text(
+            'No Tagged Posts',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'When people tag you in photos, they\'ll appear here',
+            style: TextStyle(
+              fontSize: 16,
+              color: Colors.grey[600],
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SliverAppBarDelegate extends SliverPersistentHeaderDelegate {
+  final TabBar _tabBar;
+
+  _SliverAppBarDelegate(this._tabBar);
+
+  @override
+  Widget build(
+      BuildContext context, double shrinkOffset, bool overlapsContent) {
+    return Container(
+      color: Colors.white,
+      child: _tabBar,
+    );
+  }
+
+  @override
+  double get maxExtent => _tabBar.preferredSize.height;
+
+  @override
+  double get minExtent => _tabBar.preferredSize.height;
+
+  @override
+  bool shouldRebuild(covariant SliverPersistentHeaderDelegate oldDelegate) {
+    return false;
+  }
+}

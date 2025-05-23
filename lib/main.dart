@@ -18,12 +18,27 @@ import 'modules/add_status_screen.dart';
 import 'modules/post_comments_screen.dart';
 import 'modules/notifications_screen.dart';
 import 'modules/chat_list.dart';
+import 'modules/home_screen.dart';
+import 'modules/profile_screen.dart';
 
 void main() async {
+  // Ensure Flutter is initialized
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+
+  try {
+    // Initialize Firebase with explicit options
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+    print('Firebase initialized successfully');
+
+    // Check if Firebase API key is available
+    final apiKey = DefaultFirebaseOptions.currentPlatform.apiKey;
+    print('Firebase API Key: ${apiKey.substring(0, 5)}...');
+  } catch (e) {
+    print('Error initializing Firebase: $e');
+  }
+
   runApp(MyApp());
 }
 
@@ -37,7 +52,7 @@ class MyApp extends StatelessWidget {
         primaryColor: Color(0xFF006D77),
         scaffoldBackgroundColor: Colors.white,
       ),
-      initialRoute: '/splash',
+      initialRoute: '/home',
       routes: {
         '/splash': (context) => SplashScreen(),
         '/onboarding1': (context) => OnboardingScreen1(),
@@ -54,6 +69,8 @@ class MyApp extends StatelessWidget {
         '/add_status': (context) => AddStatusScreen(),
         '/notifications': (context) => NotificationsScreen(),
         '/post_comments': (context) => PostCommentsScreen(),
+        '/home': (context) => HomeScreen(),
+        '/profile': (context) => ProfileScreen(),
         '/chat': (context) => ChatScreen(
               currentUserId:
                   'current_user_id', // You'll need to pass the actual user ID
