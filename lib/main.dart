@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'firebase_options.dart';
 import 'models/chat_models.dart';
 import 'modules/splash_screen.dart';
@@ -32,10 +33,6 @@ void main() async {
       options: DefaultFirebaseOptions.currentPlatform,
     );
     print('Firebase initialized successfully');
-
-    // Check if Firebase API key is available
-    final apiKey = DefaultFirebaseOptions.currentPlatform.apiKey;
-    print('Firebase API Key: ${apiKey.substring(0, 5)}...');
   } catch (e) {
     print('Error initializing Firebase: $e');
   }
@@ -44,6 +41,10 @@ void main() async {
 }
 
 class MyApp extends StatelessWidget {
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+
+  MyApp({Key? key}) : super(key: key);
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -53,7 +54,20 @@ class MyApp extends StatelessWidget {
         primaryColor: Color(0xFF006D77),
         scaffoldBackgroundColor: Colors.white,
       ),
-      initialRoute: '/home',
+      home: StreamBuilder<User?>(
+        stream: _auth.authStateChanges(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return SplashScreen();
+          }
+
+          if (snapshot.hasData && snapshot.data != null) {
+            return HomeScreen();
+          }
+
+          return WelcomeScreen();
+        },
+      ),
       routes: {
         '/splash': (context) => SplashScreen(),
         '/onboarding1': (context) => OnboardingScreen1(),
@@ -71,39 +85,29 @@ class MyApp extends StatelessWidget {
         '/notifications': (context) => NotificationsScreen(),
         '/post_comments': (context) => PostCommentsScreen(),
         '/home': (context) => HomeScreen(),
-        '/profile': (context) => ProfileScreen(),
+        '/profile': (context) {
+          final args = ModalRoute.of(context)?.settings.arguments as String?;
+          return ProfileScreen(userId: args);
+        },
         '/search': (context) => SearchScreen(),
       },
       onGenerateRoute: (settings) {
         if (settings.name == '/chat') {
-          // Handle chat route with arguments
           final args = settings.arguments as Map<String, dynamic>?;
 
-          if (args != null) {
-            return MaterialPageRoute(
-              builder: (context) => ChatScreen(
-                currentUserId: args['currentUserId'] ?? 'current_user_id',
-                otherUser: args['otherUser'] ??
-                    ChatUser(
-                      id: 'other_user_id',
-                      name: 'Other User',
-                      profileImage: null,
-                    ),
-              ),
-            );
-          } else {
-            // Fallback for direct navigation without arguments
-            return MaterialPageRoute(
-              builder: (context) => ChatScreen(
-                currentUserId: 'current_user_id',
-                otherUser: ChatUser(
-                  id: 'other_user_id',
-                  name: 'Other User',
-                  profileImage: null,
-                ),
-              ),
-            );
-          }
+          return MaterialPageRoute(
+            builder: (context) => ChatScreen(
+              currentUserId: args?['currentUserId'] ??
+                  _auth.currentUser?.uid ??
+                  'current_user_id',
+              otherUser: args?['otherUser'] ??
+                  ChatUser(
+                    id: 'other_user_id',
+                    name: 'Other User',
+                    profileImage: null,
+                  ),
+            ),
+          );
         }
         return null;
       },

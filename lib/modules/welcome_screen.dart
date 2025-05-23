@@ -32,7 +32,7 @@ class WelcomeScreen extends StatelessWidget {
               Spacer(),
               ElevatedButton(
                 onPressed: () {
-                  Navigator.pushReplacementNamed(context, '/post_comments');
+                  Navigator.pushReplacementNamed(context, '/sign_in');
                 },
                 child: Text('Continue'),
                 style: ElevatedButton.styleFrom(

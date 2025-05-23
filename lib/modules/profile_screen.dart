@@ -5,6 +5,7 @@ import '../models/firebase_db_model.dart';
 import '../services/user_service.dart';
 import 'package:intl/intl.dart';
 import '../models/chat_models.dart';
+import 'welcome_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   final String? userId;
@@ -70,7 +71,7 @@ class _ProfileScreenState extends State<ProfileScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 1, vsync: this);
     _loadUserData();
   }
 
@@ -286,12 +287,21 @@ class _ProfileScreenState extends State<ProfileScreen>
             child: const Text('Cancel'),
           ),
           TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              // Implement logout functionality
-              _authService.signOut().then((_) {
-                Navigator.pushReplacementNamed(context, '/sign_in');
-              });
+            onPressed: () async {
+              try {
+                Navigator.pop(context); // Close the dialog
+                await _authService.signOut();
+                // The auth state change listener in main.dart will handle navigation
+              } catch (e) {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Error logging out: $e'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+              }
             },
             child: const Text('Log Out', style: TextStyle(color: Colors.red)),
           ),
@@ -350,17 +360,12 @@ class _ProfileScreenState extends State<ProfileScreen>
       appBar: AppBar(
         elevation: 0,
         backgroundColor: Colors.white,
-        title: Row(
-          children: [
-            Text(
-              _currentUser!.username,
-              style: const TextStyle(
-                color: Colors.black,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const Icon(Icons.keyboard_arrow_down, size: 16),
-          ],
+        title: Text(
+          _currentUser!.username,
+          style: const TextStyle(
+            color: Colors.black,
+            fontWeight: FontWeight.bold,
+          ),
         ),
         actions: [
           IconButton(
@@ -369,10 +374,11 @@ class _ProfileScreenState extends State<ProfileScreen>
               Navigator.pushNamed(context, '/add_status');
             },
           ),
-          IconButton(
-            icon: const Icon(Icons.menu, color: Colors.black),
-            onPressed: () => _showProfileOptions(context),
-          ),
+          if (_isCurrentUserProfile)
+            IconButton(
+              icon: const Icon(Icons.logout, color: Colors.black),
+              onPressed: () => _showLogoutConfirmation(),
+            ),
         ],
       ),
       body: NestedScrollView(
@@ -390,8 +396,6 @@ class _ProfileScreenState extends State<ProfileScreen>
                   indicatorColor: Colors.black,
                   tabs: const [
                     Tab(icon: Icon(Icons.grid_on)),
-                    Tab(icon: Icon(Icons.video_collection_outlined)),
-                    Tab(icon: Icon(Icons.person_pin_outlined)),
                   ],
                 ),
               ),
@@ -403,8 +407,6 @@ class _ProfileScreenState extends State<ProfileScreen>
           controller: _tabController,
           children: [
             _buildPostsGrid(),
-            _buildReelsGrid(),
-            _buildTaggedGrid(),
           ],
         ),
       ),
@@ -425,33 +427,9 @@ class _ProfileScreenState extends State<ProfileScreen>
         children: [
           Row(
             children: [
-              Container(
-                width: 86,
-                height: 86,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: LinearGradient(
-                    colors: [
-                      Theme.of(context).primaryColor,
-                      Colors.purple,
-                      Colors.orange,
-                      Colors.pink,
-                    ],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  border: Border.all(
-                    color: Colors.white,
-                    width: 2,
-                  ),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(3.0),
-                  child: CircleAvatar(
-                    radius: 40,
-                    backgroundImage: NetworkImage(profileImageUrl),
-                  ),
-                ),
+              CircleAvatar(
+                radius: 40,
+                backgroundImage: NetworkImage(profileImageUrl),
               ),
               const SizedBox(width: 24),
               Expanded(
@@ -482,10 +460,7 @@ class _ProfileScreenState extends State<ProfileScreen>
             style: const TextStyle(fontSize: 14),
           ),
           const SizedBox(height: 16),
-
-          // Profile action buttons (Edit Profile or Follow + Message)
           if (_isCurrentUserProfile)
-            // Edit Profile button for own profile
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
@@ -497,26 +472,21 @@ class _ProfileScreenState extends State<ProfileScreen>
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  padding: const EdgeInsets.symmetric(vertical: 8),
                 ),
                 child: const Text('Edit Profile'),
               ),
-            )
-          else
-            // Follow/Unfollow and Message buttons for other profiles
+            ),
+          if (!_isCurrentUserProfile)
             Row(
               children: [
-                // Follow/Unfollow button
                 Expanded(
-                  flex: 3,
                   child: ElevatedButton(
                     onPressed: _isLoadingFollow
                         ? null
                         : (_isFollowing ? _unfollowUser : _followUser),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: _isFollowing
-                          ? Colors.white
-                          : Theme.of(context).primaryColor,
+                      backgroundColor:
+                          _isFollowing ? Colors.white : Colors.blue,
                       foregroundColor:
                           _isFollowing ? Colors.black : Colors.white,
                       side: _isFollowing
@@ -525,21 +495,20 @@ class _ProfileScreenState extends State<ProfileScreen>
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      padding: const EdgeInsets.symmetric(vertical: 8),
                     ),
                     child: _isLoadingFollow
                         ? const SizedBox(
                             height: 20,
                             width: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2),
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                            ),
                           )
                         : Text(_isFollowing ? 'Following' : 'Follow'),
                   ),
                 ),
                 const SizedBox(width: 8),
-                // Message button
                 Expanded(
-                  flex: 2,
                   child: ElevatedButton(
                     onPressed: _messageUser,
                     style: ElevatedButton.styleFrom(
@@ -549,32 +518,12 @@ class _ProfileScreenState extends State<ProfileScreen>
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      padding: const EdgeInsets.symmetric(vertical: 8),
                     ),
                     child: const Text('Message'),
                   ),
                 ),
               ],
             ),
-
-          const SizedBox(height: 16),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: [
-                _buildStoryHighlight('Travel',
-                    'https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?q=80&w=1421&auto=format&fit=crop'),
-                _buildStoryHighlight('Food',
-                    'https://images.unsplash.com/photo-1540189549336-e6e99c3679fe?q=80&w=1287&auto=format&fit=crop'),
-                _buildStoryHighlight('Tech',
-                    'https://images.unsplash.com/photo-1593642632823-8f785ba67e45?q=80&w=1332&auto=format&fit=crop'),
-                _buildStoryHighlight('Nature',
-                    'https://images.unsplash.com/photo-1501854140801-50d01698950b?q=80&w=1575&auto=format&fit=crop'),
-                _buildStoryHighlight('Friends',
-                    'https://images.unsplash.com/photo-1506869640319-fe1a24fd76dc?q=80&w=1470&auto=format&fit=crop'),
-              ],
-            ),
-          ),
         ],
       ),
     );
@@ -676,69 +625,6 @@ class _ProfileScreenState extends State<ProfileScreen>
           ),
         );
       },
-    );
-  }
-
-  Widget _buildReelsGrid() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.video_collection_outlined,
-            size: 80,
-            color: Colors.grey[300],
-          ),
-          const SizedBox(height: 16),
-          const Text(
-            'No Reels Yet',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Reels you create will appear here',
-            style: TextStyle(
-              fontSize: 16,
-              color: Colors.grey[600],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTaggedGrid() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.person_pin_outlined,
-            size: 80,
-            color: Colors.grey[300],
-          ),
-          const SizedBox(height: 16),
-          const Text(
-            'No Tagged Posts',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'When people tag you in photos, they\'ll appear here',
-            style: TextStyle(
-              fontSize: 16,
-              color: Colors.grey[600],
-            ),
-            textAlign: TextAlign.center,
-          ),
-        ],
-      ),
     );
   }
 

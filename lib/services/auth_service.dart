@@ -307,23 +307,19 @@ class AuthService {
 
   // Sign out
   Future<void> signOut() async {
-    // Update last active timestamp if user is logged in
-    final user = currentUser;
-    if (user != null) {
-      try {
-        await _dbModel.updateUserStats(user.uid, {
-          'last_active': DateTime.now().millisecondsSinceEpoch,
-        });
-      } catch (e) {
-        print('Error updating last active timestamp: $e');
-      }
+    try {
+      // First sign out from Firebase Auth
+      await _firebaseAuth.signOut();
+
+      // Then clear local state
+      _currentUser = null;
+
+      // Notify listeners
+      _authStateController.add(null);
+    } catch (e) {
+      print('Error during sign out: $e');
+      rethrow;
     }
-
-    await _firebaseAuth.signOut();
-    _currentUser = null;
-
-    // Notify listeners
-    _authStateController.add(null);
   }
 
   // Password reset
