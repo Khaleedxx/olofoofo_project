@@ -5,6 +5,7 @@ import '../models/user_model.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:intl/intl.dart';
 import 'profile_screen.dart';
+import 'search_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -41,7 +42,7 @@ class _HomeScreenState extends State<HomeScreen>
     // Initialize pages here after dependencies are ready
     if (_pages.isEmpty) {
       _pages.add(_buildMainContent());
-      _pages.add(const Center(child: Text('Search')));
+      _pages.add(const SearchScreen());
       _pages.add(const Center(child: Text('Activity')));
       _pages.add(const ProfileScreen());
     }
@@ -194,7 +195,12 @@ class _HomeScreenState extends State<HomeScreen>
                   const Spacer(),
                   IconButton(
                     icon: const Icon(Icons.search, color: Colors.black87),
-                    onPressed: () {},
+                    onPressed: () {
+                      setState(() {
+                        _selectedIndex = 1;
+                        _pageController.jumpToPage(1);
+                      });
+                    },
                   ),
                   IconButton(
                     icon: const Icon(Icons.notifications_none_outlined,

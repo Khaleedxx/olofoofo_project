@@ -2,10 +2,13 @@ import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
 import '../models/user_model.dart';
 import '../models/firebase_db_model.dart';
+import '../services/user_service.dart';
 import 'package:intl/intl.dart';
+import '../models/chat_models.dart';
 
 class ProfileScreen extends StatefulWidget {
-  const ProfileScreen({Key? key}) : super(key: key);
+  final String? userId;
+  const ProfileScreen({Key? key, this.userId}) : super(key: key);
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
@@ -16,8 +19,13 @@ class _ProfileScreenState extends State<ProfileScreen>
   late TabController _tabController;
   final AuthService _authService = AuthService();
   final FirebaseDbModel _dbModel = FirebaseDbModel();
+  final UserService _userService = UserService();
   bool _isLoading = true;
   UserModel? _currentUser;
+  UserModel? _profileUser; // The user whose profile we're viewing
+  bool _isCurrentUserProfile = true;
+  bool _isFollowing = false;
+  bool _isLoadingFollow = false;
 
   // Mock posts data
   final List<Map<String, dynamic>> _posts = [
@@ -74,19 +82,43 @@ class _ProfileScreenState extends State<ProfileScreen>
     try {
       // Get current user from AuthService
       final currentUser = _authService.currentUser;
-      if (currentUser != null) {
-        // Get full user model from database
-        final userModel = await _dbModel.getUserFromDb(currentUser.uid);
+      if (currentUser == null) {
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+          });
+        }
+        return;
+      }
+
+      // Get full current user model from database
+      final currentUserModel = await _dbModel.getUserFromDb(currentUser.uid);
+
+      // Check if viewing other user's profile
+      if (widget.userId != null && widget.userId != currentUser.uid) {
+        // Get the user model for the specified userId
+        final profileUserModel = await _userService.getUserById(widget.userId!);
+
+        // Check if the current user is following this user
+        final following =
+            await _userService.isFollowing(currentUser.uid, widget.userId!);
 
         if (mounted) {
           setState(() {
-            _currentUser = userModel;
+            _currentUser = currentUserModel;
+            _profileUser = profileUserModel;
+            _isCurrentUserProfile = false;
+            _isFollowing = following;
             _isLoading = false;
           });
         }
       } else {
+        // Viewing own profile
         if (mounted) {
           setState(() {
+            _currentUser = currentUserModel;
+            _profileUser = currentUserModel;
+            _isCurrentUserProfile = true;
             _isLoading = false;
           });
         }
@@ -101,10 +133,99 @@ class _ProfileScreenState extends State<ProfileScreen>
     }
   }
 
-  @override
-  void dispose() {
-    _tabController.dispose();
-    super.dispose();
+  Future<void> _followUser() async {
+    if (_currentUser == null || _profileUser == null) return;
+
+    setState(() {
+      _isLoadingFollow = true;
+    });
+
+    try {
+      final success =
+          await _userService.followUser(_currentUser!.uid, _profileUser!.uid);
+
+      if (success && mounted) {
+        setState(() {
+          _isFollowing = true;
+          // Update the follower count in the UI
+          if (_profileUser != null) {
+            _profileUser = _profileUser!
+                .copyWith(followersCount: _profileUser!.followersCount + 1);
+          }
+          _isLoadingFollow = false;
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Following ${_profileUser!.username}')),
+        );
+      }
+    } catch (e) {
+      print('Error following user: $e');
+      if (mounted) {
+        setState(() {
+          _isLoadingFollow = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to follow user')),
+        );
+      }
+    }
+  }
+
+  Future<void> _unfollowUser() async {
+    if (_currentUser == null || _profileUser == null) return;
+
+    setState(() {
+      _isLoadingFollow = true;
+    });
+
+    try {
+      final success =
+          await _userService.unfollowUser(_currentUser!.uid, _profileUser!.uid);
+
+      if (success && mounted) {
+        setState(() {
+          _isFollowing = false;
+          // Update the follower count in the UI
+          if (_profileUser != null) {
+            _profileUser = _profileUser!
+                .copyWith(followersCount: _profileUser!.followersCount - 1);
+          }
+          _isLoadingFollow = false;
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Unfollowed ${_profileUser!.username}')),
+        );
+      }
+    } catch (e) {
+      print('Error unfollowing user: $e');
+      if (mounted) {
+        setState(() {
+          _isLoadingFollow = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to unfollow user')),
+        );
+      }
+    }
+  }
+
+  void _messageUser() {
+    if (_currentUser == null || _profileUser == null) return;
+
+    Navigator.pushNamed(
+      context,
+      '/chat',
+      arguments: {
+        'currentUserId': _currentUser!.uid,
+        'otherUser': ChatUser(
+          id: _profileUser!.uid,
+          name: _profileUser!.username,
+          profileImage: _profileUser!.profileImageUrl,
+        ),
+      },
+    );
   }
 
   void _showProfileOptions(BuildContext context) {
@@ -291,7 +412,10 @@ class _ProfileScreenState extends State<ProfileScreen>
   }
 
   Widget _buildProfileHeader() {
-    final profileImageUrl = _currentUser?.profileImageUrl ??
+    final user = _profileUser;
+    if (user == null) return Container();
+
+    final profileImageUrl = user.profileImageUrl ??
         'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?q=80&w=1287&auto=format&fit=crop';
 
     return Padding(
@@ -334,14 +458,11 @@ class _ProfileScreenState extends State<ProfileScreen>
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
+                    _buildStatColumn(user.postsCount.toString(), 'Posts'),
                     _buildStatColumn(
-                        _currentUser?.postsCount.toString() ?? '0', 'Posts'),
+                        user.followersCount.toString(), 'Followers'),
                     _buildStatColumn(
-                        _currentUser?.followersCount.toString() ?? '0',
-                        'Followers'),
-                    _buildStatColumn(
-                        _currentUser?.followingCount.toString() ?? '0',
-                        'Following'),
+                        user.followingCount.toString(), 'Following'),
                   ],
                 ),
               ),
@@ -349,7 +470,7 @@ class _ProfileScreenState extends State<ProfileScreen>
           ),
           const SizedBox(height: 16),
           Text(
-            _currentUser?.fullName ?? _currentUser!.username,
+            user.fullName ?? user.username,
             style: const TextStyle(
               fontWeight: FontWeight.bold,
               fontSize: 16,
@@ -357,27 +478,85 @@ class _ProfileScreenState extends State<ProfileScreen>
           ),
           const SizedBox(height: 4),
           Text(
-            _currentUser?.bio ?? 'Hello! I am using OFOFO',
+            user.bio ?? 'Hello! I am using OFOFO',
             style: const TextStyle(fontSize: 14),
           ),
           const SizedBox(height: 16),
-          // Edit Profile button instead of Follow/Message
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: _navigateToEditProfile,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.white,
-                foregroundColor: Colors.black,
-                side: const BorderSide(color: Colors.grey),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
+
+          // Profile action buttons (Edit Profile or Follow + Message)
+          if (_isCurrentUserProfile)
+            // Edit Profile button for own profile
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: _navigateToEditProfile,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.white,
+                  foregroundColor: Colors.black,
+                  side: const BorderSide(color: Colors.grey),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  padding: const EdgeInsets.symmetric(vertical: 8),
                 ),
-                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: const Text('Edit Profile'),
               ),
-              child: const Text('Edit Profile'),
+            )
+          else
+            // Follow/Unfollow and Message buttons for other profiles
+            Row(
+              children: [
+                // Follow/Unfollow button
+                Expanded(
+                  flex: 3,
+                  child: ElevatedButton(
+                    onPressed: _isLoadingFollow
+                        ? null
+                        : (_isFollowing ? _unfollowUser : _followUser),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: _isFollowing
+                          ? Colors.white
+                          : Theme.of(context).primaryColor,
+                      foregroundColor:
+                          _isFollowing ? Colors.black : Colors.white,
+                      side: _isFollowing
+                          ? const BorderSide(color: Colors.grey)
+                          : null,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                    ),
+                    child: _isLoadingFollow
+                        ? const SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : Text(_isFollowing ? 'Following' : 'Follow'),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                // Message button
+                Expanded(
+                  flex: 2,
+                  child: ElevatedButton(
+                    onPressed: _messageUser,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.white,
+                      foregroundColor: Colors.black,
+                      side: const BorderSide(color: Colors.grey),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                    ),
+                    child: const Text('Message'),
+                  ),
+                ),
+              ],
             ),
-          ),
+
           const SizedBox(height: 16),
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
@@ -561,6 +740,12 @@ class _ProfileScreenState extends State<ProfileScreen>
         ],
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
   }
 }
 

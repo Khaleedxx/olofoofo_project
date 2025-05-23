@@ -20,6 +20,7 @@ import 'modules/notifications_screen.dart';
 import 'modules/chat_list.dart';
 import 'modules/home_screen.dart';
 import 'modules/profile_screen.dart';
+import 'modules/search_screen.dart';
 
 void main() async {
   // Ensure Flutter is initialized
@@ -71,16 +72,40 @@ class MyApp extends StatelessWidget {
         '/post_comments': (context) => PostCommentsScreen(),
         '/home': (context) => HomeScreen(),
         '/profile': (context) => ProfileScreen(),
-        '/chat': (context) => ChatScreen(
-              currentUserId:
-                  'current_user_id', // You'll need to pass the actual user ID
-              otherUser: ChatUser(
-                id: 'other_user_id', // You'll need to pass the actual other user ID
-                name: 'Other User', // You'll need to pass the actual user name
-                profileImage:
-                    null, // You'll need to pass the actual profile image URL if available
+        '/search': (context) => SearchScreen(),
+      },
+      onGenerateRoute: (settings) {
+        if (settings.name == '/chat') {
+          // Handle chat route with arguments
+          final args = settings.arguments as Map<String, dynamic>?;
+
+          if (args != null) {
+            return MaterialPageRoute(
+              builder: (context) => ChatScreen(
+                currentUserId: args['currentUserId'] ?? 'current_user_id',
+                otherUser: args['otherUser'] ??
+                    ChatUser(
+                      id: 'other_user_id',
+                      name: 'Other User',
+                      profileImage: null,
+                    ),
               ),
-            ),
+            );
+          } else {
+            // Fallback for direct navigation without arguments
+            return MaterialPageRoute(
+              builder: (context) => ChatScreen(
+                currentUserId: 'current_user_id',
+                otherUser: ChatUser(
+                  id: 'other_user_id',
+                  name: 'Other User',
+                  profileImage: null,
+                ),
+              ),
+            );
+          }
+        }
+        return null;
       },
     );
   }
