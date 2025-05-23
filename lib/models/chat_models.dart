@@ -12,6 +12,7 @@ class Message {
   final String receiverId;
   final String content;
   final DateTime timestamp;
+  final bool isRead;
 
   Message({
     required this.id,
@@ -19,6 +20,7 @@ class Message {
     required this.receiverId,
     required this.content,
     required this.timestamp,
+    this.isRead = false,
   });
 
   factory Message.fromMap(Map<String, dynamic> map) {
@@ -27,9 +29,12 @@ class Message {
       senderId: map['senderId'] as String,
       receiverId: map['receiverId'] as String,
       content: map['content'] as String,
-      timestamp: map['timestamp'] is DateTime
-          ? map['timestamp'] as DateTime
-          : DateTime.parse(map['timestamp'].toString()),
+      timestamp: map['timestamp'] is int
+          ? DateTime.fromMillisecondsSinceEpoch(map['timestamp'] as int)
+          : map['timestamp'] is DateTime
+              ? map['timestamp'] as DateTime
+              : DateTime.parse(map['timestamp'].toString()),
+      isRead: map['isRead'] as bool? ?? false,
     );
   }
 
@@ -39,7 +44,8 @@ class Message {
       'senderId': senderId,
       'receiverId': receiverId,
       'content': content,
-      'timestamp': timestamp.toIso8601String(),
+      'timestamp': timestamp.millisecondsSinceEpoch,
+      'isRead': isRead,
     };
   }
 }

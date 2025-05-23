@@ -189,11 +189,13 @@ class _ChatScreenState extends State<ChatScreen> {
                     icon: const Icon(Icons.send, color: Colors.white),
                     onPressed: () {
                       if (_messageController.text.isNotEmpty) {
-                        _chatService.sendMessage(
-                          widget.currentUserId,
-                          widget.otherUser.id,
-                          _messageController.text,
-                        );
+                        _chatService.sendMessage(Message(
+                          id: DateTime.now().millisecondsSinceEpoch.toString(),
+                          senderId: widget.currentUserId,
+                          receiverId: widget.otherUser.id,
+                          content: _messageController.text,
+                          timestamp: DateTime.now(),
+                        ));
                         _messageController.clear();
                       }
                     },
