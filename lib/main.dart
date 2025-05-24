@@ -24,17 +24,15 @@ import 'modules/profile_screen.dart';
 import 'modules/search_screen.dart';
 
 void main() async {
-  // Ensure Flutter is initialized
   WidgetsFlutterBinding.ensureInitialized();
 
   try {
-    // Initialize Firebase with explicit options
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
-    print('Firebase initialized successfully');
+    print('Firebase is ready to use');
   } catch (e) {
-    print('Error initializing Firebase: $e');
+    print('Could not initialize Firebase: $e');
   }
 
   runApp(MyApp());
@@ -54,20 +52,7 @@ class MyApp extends StatelessWidget {
         primaryColor: Color(0xFF006D77),
         scaffoldBackgroundColor: Colors.white,
       ),
-      home: StreamBuilder<User?>(
-        stream: _auth.authStateChanges(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return SplashScreen();
-          }
-
-          if (snapshot.hasData && snapshot.data != null) {
-            return HomeScreen();
-          }
-
-          return WelcomeScreen();
-        },
-      ),
+      home: SplashScreen(),
       routes: {
         '/splash': (context) => SplashScreen(),
         '/onboarding1': (context) => OnboardingScreen1(),
@@ -94,16 +79,15 @@ class MyApp extends StatelessWidget {
       onGenerateRoute: (settings) {
         if (settings.name == '/chat') {
           final args = settings.arguments as Map<String, dynamic>?;
-
           return MaterialPageRoute(
             builder: (context) => ChatScreen(
               currentUserId: args?['currentUserId'] ??
-                  _auth.currentUser?.uid ??
-                  'current_user_id',
+                  FirebaseAuth.instance.currentUser?.uid ??
+                  'default_user_id',
               otherUser: args?['otherUser'] ??
                   ChatUser(
-                    id: 'other_user_id',
-                    name: 'Other User',
+                    id: 'default_id',
+                    name: 'User',
                     profileImage: null,
                   ),
             ),

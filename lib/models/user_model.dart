@@ -2,7 +2,7 @@ class UserModel {
   final String uid;
   final String email;
   final String username;
-  final String? password; // Only used for registration, not stored in database
+  final String? password;
   final String? fullName;
   final String? firstName;
   final String? lastName;
@@ -57,7 +57,6 @@ class UserModel {
       'uid': uid,
       'email': email,
       'username': username,
-      // Do not include password in JSON
       'fullName': fullName,
       'firstName': firstName,
       'lastName': lastName,
@@ -105,9 +104,7 @@ class UserModel {
       birthDate: json['birthDate'] != null
           ? DateTime.fromMillisecondsSinceEpoch(json['birthDate'])
           : null,
-      preferences: json['preferences'] != null
-          ? Map<String, dynamic>.from(json['preferences'])
-          : null,
+      preferences: json['preferences'],
       interests: json['interests'] != null
           ? List<String>.from(json['interests'])
           : null,

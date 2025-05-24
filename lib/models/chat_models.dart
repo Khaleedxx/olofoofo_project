@@ -25,16 +25,16 @@ class Message {
 
   factory Message.fromMap(Map<String, dynamic> map) {
     return Message(
-      id: map['id'] as String,
-      senderId: map['senderId'] as String,
-      receiverId: map['receiverId'] as String,
-      content: map['content'] as String,
+      id: map['id'],
+      senderId: map['senderId'],
+      receiverId: map['receiverId'],
+      content: map['content'],
       timestamp: map['timestamp'] is int
-          ? DateTime.fromMillisecondsSinceEpoch(map['timestamp'] as int)
+          ? DateTime.fromMillisecondsSinceEpoch(map['timestamp'])
           : map['timestamp'] is DateTime
-              ? map['timestamp'] as DateTime
+              ? map['timestamp']
               : DateTime.parse(map['timestamp'].toString()),
-      isRead: map['isRead'] as bool? ?? false,
+      isRead: map['isRead'] ?? false,
     );
   }
 

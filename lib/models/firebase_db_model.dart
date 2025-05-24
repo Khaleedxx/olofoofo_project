@@ -12,18 +12,12 @@ class FirebaseDbModel {
   final String _databaseUrl =
       "https://olofoofo-f4a3a-default-rtdb.firebaseio.com/";
 
-  // User related database operations
   Future<void> createUserInDb(UserModel user) async {
     try {
-      // Create main user record
       await _database.child('users/${user.uid}').set(user.toJson());
-
-      // Create username mapping for uniqueness checks
       await _database
           .child('usernames/${user.username.toLowerCase()}')
           .set(user.uid);
-
-      // Create user profile section
       await _database.child('user_profiles/${user.uid}').set({
         'bio': user.bio ?? '',
         'location': user.location ?? '',
@@ -34,7 +28,6 @@ class FirebaseDbModel {
         'updated_at': DateTime.now().millisecondsSinceEpoch,
       });
 
-      // Create user settings
       await _database.child('user_settings/${user.uid}').set({
         'notifications_enabled': true,
         'private_account': false,
@@ -42,7 +35,6 @@ class FirebaseDbModel {
         'language': 'en',
       });
 
-      // Create empty user stats
       await _database.child('user_stats/${user.uid}').set({
         'posts_count': 0,
         'followers_count': 0,
@@ -50,32 +42,28 @@ class FirebaseDbModel {
         'last_active': DateTime.now().millisecondsSinceEpoch,
       });
 
-      // Create empty collections for user content
       await _database
           .child('user_posts/${user.uid}')
           .set({'initialized': true});
-
       await _database
           .child('user_followers/${user.uid}')
           .set({'initialized': true});
-
       await _database
           .child('user_following/${user.uid}')
           .set({'initialized': true});
 
-      // Also store directly using HTTP for verification (optional)
       final response = await http.put(
         Uri.parse('$_databaseUrl/users/${user.uid}.json'),
         body: json.encode(user.toJson()),
       );
 
       if (response.statusCode != 200) {
-        print('HTTP Error: ${response.statusCode}');
-        print('Response body: ${response.body}');
+        print('Error: ${response.statusCode}');
+        print('Response: ${response.body}');
       }
     } catch (e) {
-      print('Error creating user in database: $e');
-      rethrow;
+      print('Error creating user: $e');
+      throw e;
     }
   }
 
@@ -85,7 +73,6 @@ class FirebaseDbModel {
       if (snapshot.exists) {
         final userData = Map<String, dynamic>.from(snapshot.value as Map);
 
-        // Get user stats to include followers and following counts
         final statsSnapshot = await _database.child('user_stats/$uid').get();
         if (statsSnapshot.exists) {
           final statsData =
@@ -95,7 +82,6 @@ class FirebaseDbModel {
           userData['posts_count'] = statsData['posts_count'] ?? 0;
         }
 
-        // Get profile data
         final profileSnapshot =
             await _database.child('user_profiles/$uid').get();
         if (profileSnapshot.exists) {
@@ -111,139 +97,19 @@ class FirebaseDbModel {
       }
       return null;
     } catch (e) {
-      print('Error getting user from database: $e');
+      print('Error getting user: $e');
       return null;
-    }
-  }
-
-  Future<Map<String, dynamic>> getUserProfileFromDb(String uid) async {
-    try {
-      final snapshot = await _database.child('user_profiles/$uid').get();
-      if (snapshot.exists) {
-        return Map<String, dynamic>.from(snapshot.value as Map);
-      }
-      return {};
-    } catch (e) {
-      print('Error getting user profile from database: $e');
-      return {};
-    }
-  }
-
-  Future<Map<String, dynamic>> getUserSettingsFromDb(String uid) async {
-    try {
-      final snapshot = await _database.child('user_settings/$uid').get();
-      if (snapshot.exists) {
-        return Map<String, dynamic>.from(snapshot.value as Map);
-      }
-      return {};
-    } catch (e) {
-      print('Error getting user settings from database: $e');
-      return {};
-    }
-  }
-
-  Future<Map<String, dynamic>> getUserStatsFromDb(String uid) async {
-    try {
-      final snapshot = await _database.child('user_stats/$uid').get();
-      if (snapshot.exists) {
-        return Map<String, dynamic>.from(snapshot.value as Map);
-      }
-      return {};
-    } catch (e) {
-      print('Error getting user stats from database: $e');
-      return {};
-    }
-  }
-
-  Future<bool> isUsernameAvailable(String username) async {
-    try {
-      final snapshot =
-          await _database.child('usernames/${username.toLowerCase()}').get();
-      return !snapshot.exists;
-    } catch (e) {
-      print('Error checking username availability: $e');
-      return false;
-    }
-  }
-
-  Future<void> updateUserProfile(String uid, Map<String, dynamic> data) async {
-    try {
-      // Update timestamp
-      data['updated_at'] = DateTime.now().millisecondsSinceEpoch;
-
-      // Update profile data
-      await _database.child('user_profiles/$uid').update(data);
-
-      // Update main user record if needed
-      final userUpdates = <String, dynamic>{};
-      if (data.containsKey('bio')) userUpdates['bio'] = data['bio'];
-      if (data.containsKey('location'))
-        userUpdates['location'] = data['location'];
-      if (data.containsKey('website')) userUpdates['website'] = data['website'];
-      if (data.containsKey('profile_image_url'))
-        userUpdates['profile_image_url'] = data['profile_image_url'];
-
-      if (userUpdates.isNotEmpty) {
-        await _database.child('users/$uid').update(userUpdates);
-      }
-    } catch (e) {
-      print('Error updating user profile: $e');
-      rethrow;
-    }
-  }
-
-  Future<void> updateUserSettings(String uid, Map<String, dynamic> data) async {
-    try {
-      await _database.child('user_settings/$uid').update(data);
-    } catch (e) {
-      print('Error updating user settings: $e');
-      rethrow;
-    }
-  }
-
-  Future<void> updateUserStats(String uid, Map<String, dynamic> data) async {
-    try {
-      await _database.child('user_stats/$uid').update(data);
-    } catch (e) {
-      print('Error updating user stats: $e');
-      rethrow;
-    }
-  }
-
-  Future<void> resetUserFollowers(String uid) async {
-    try {
-      await _database.child('user_stats/$uid').update({
-        'followers_count': 0,
-        'following_count': 0,
-      });
-
-      // Clear followers and following lists
-      await _database.child('user_followers/$uid').remove();
-      await _database.child('user_following/$uid').remove();
-
-      // Recreate empty collections
-      await _database.child('user_followers/$uid').set({'initialized': true});
-      await _database.child('user_following/$uid').set({'initialized': true});
-
-      print('Reset followers and following for user $uid');
-    } catch (e) {
-      print('Error resetting followers: $e');
-      rethrow;
     }
   }
 
   Future<UserModel> getOrCreateUserProfile(
       String uid, String email, String username) async {
     try {
-      // Try to get existing user
       final existingUser = await getUserFromDb(uid);
       if (existingUser != null) {
-        // Reset followers if requested
-        await resetUserFollowers(uid);
         return existingUser;
       }
 
-      // Create new user if not found
       final newUser = UserModel(
         uid: uid,
         email: email,
@@ -260,8 +126,7 @@ class FirebaseDbModel {
       await createUserInDb(newUser);
       return newUser;
     } catch (e) {
-      print('Error in getOrCreateUserProfile: $e');
-      // Return a basic user model as fallback
+      print('Error: $e');
       return UserModel(
         uid: uid,
         email: email,
@@ -273,7 +138,6 @@ class FirebaseDbModel {
 
   Future<void> deleteUser(String uid, String username) async {
     try {
-      // Delete all user data
       await _database.child('users/$uid').remove();
       await _database.child('usernames/${username.toLowerCase()}').remove();
       await _database.child('user_profiles/$uid').remove();
@@ -284,7 +148,111 @@ class FirebaseDbModel {
       await _database.child('user_following/$uid').remove();
     } catch (e) {
       print('Error deleting user: $e');
-      rethrow;
+      throw e;
+    }
+  }
+
+  // Check if username is available
+  Future<bool> isUsernameAvailable(String username) async {
+    try {
+      final snapshot =
+          await _database.child('usernames/${username.toLowerCase()}').get();
+      return !snapshot.exists;
+    } catch (e) {
+      print('Error checking username availability: $e');
+      throw e;
+    }
+  }
+
+  // Update user stats
+  Future<void> updateUserStats(String uid, Map<String, dynamic> stats) async {
+    try {
+      await _database.child('user_stats/$uid').update(stats);
+    } catch (e) {
+      print('Error updating user stats: $e');
+      throw e;
+    }
+  }
+
+  // Get user profile from database
+  Future<Map<String, dynamic>> getUserProfileFromDb(String uid) async {
+    try {
+      final snapshot = await _database.child('user_profiles/$uid').get();
+      if (snapshot.exists) {
+        return Map<String, dynamic>.from(snapshot.value as Map);
+      }
+      return {};
+    } catch (e) {
+      print('Error getting user profile: $e');
+      return {};
+    }
+  }
+
+  // Get user settings from database
+  Future<Map<String, dynamic>> getUserSettingsFromDb(String uid) async {
+    try {
+      final snapshot = await _database.child('user_settings/$uid').get();
+      if (snapshot.exists) {
+        return Map<String, dynamic>.from(snapshot.value as Map);
+      }
+      return {
+        'notifications_enabled': true,
+        'private_account': false,
+        'theme': 'light',
+        'language': 'en',
+      };
+    } catch (e) {
+      print('Error getting user settings: $e');
+      return {
+        'notifications_enabled': true,
+        'private_account': false,
+        'theme': 'light',
+        'language': 'en',
+      };
+    }
+  }
+
+  // Get user stats from database
+  Future<Map<String, dynamic>> getUserStatsFromDb(String uid) async {
+    try {
+      final snapshot = await _database.child('user_stats/$uid').get();
+      if (snapshot.exists) {
+        return Map<String, dynamic>.from(snapshot.value as Map);
+      }
+      return {
+        'posts_count': 0,
+        'followers_count': 0,
+        'following_count': 0,
+        'last_active': DateTime.now().millisecondsSinceEpoch,
+      };
+    } catch (e) {
+      print('Error getting user stats: $e');
+      return {
+        'posts_count': 0,
+        'followers_count': 0,
+        'following_count': 0,
+        'last_active': DateTime.now().millisecondsSinceEpoch,
+      };
+    }
+  }
+
+  // Update user profile
+  Future<void> updateUserProfile(String uid, Map<String, dynamic> data) async {
+    try {
+      await _database.child('user_profiles/$uid').update(data);
+    } catch (e) {
+      print('Error updating user profile: $e');
+      throw e;
+    }
+  }
+
+  // Update user settings
+  Future<void> updateUserSettings(String uid, Map<String, dynamic> data) async {
+    try {
+      await _database.child('user_settings/$uid').update(data);
+    } catch (e) {
+      print('Error updating user settings: $e');
+      throw e;
     }
   }
 }

@@ -14,10 +14,8 @@ class _SignupScreenState extends State<SignupScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _usernameController = TextEditingController();
-  final _fullNameController = TextEditingController();
   final _firstNameController = TextEditingController();
   final _lastNameController = TextEditingController();
-  final _phoneController = TextEditingController();
 
   final AuthService _authService = AuthService();
 
@@ -37,10 +35,8 @@ class _SignupScreenState extends State<SignupScreen> {
     _emailController.dispose();
     _passwordController.dispose();
     _usernameController.dispose();
-    _fullNameController.dispose();
     _firstNameController.dispose();
     _lastNameController.dispose();
-    _phoneController.dispose();
     super.dispose();
   }
 
@@ -54,12 +50,9 @@ class _SignupScreenState extends State<SignupScreen> {
       _errorMessage = null;
     });
 
-    // Combine first and last name for full name if not provided
-    String fullName = _fullNameController.text.trim();
-    if (fullName.isEmpty && _firstNameController.text.isNotEmpty) {
-      fullName =
-          '${_firstNameController.text.trim()} ${_lastNameController.text.trim()}';
-    }
+    // Combine first and last name for full name
+    String fullName =
+        '${_firstNameController.text.trim()} ${_lastNameController.text.trim()}';
 
     try {
       final result = await _authService.signUp(
@@ -69,7 +62,6 @@ class _SignupScreenState extends State<SignupScreen> {
         fullName: fullName,
         firstName: _firstNameController.text.trim(),
         lastName: _lastNameController.text.trim(),
-        phoneNumber: _phoneController.text.trim(),
         gender: _selectedGender != 'Prefer not to say' ? _selectedGender : null,
       );
 
@@ -182,7 +174,7 @@ class _SignupScreenState extends State<SignupScreen> {
                 ),
                 const SizedBox(height: 10),
                 const Text(
-                  'Sign up to get started with OFOFO',
+                  'Sign up to get started with OFOOFO',
                   style: TextStyle(
                     fontSize: 16,
                     color: Colors.grey,
@@ -220,21 +212,6 @@ class _SignupScreenState extends State<SignupScreen> {
                 ),
                 const SizedBox(height: 20),
 
-                // Full Name Field (Optional)
-                TextFormField(
-                  controller: _fullNameController,
-                  decoration: InputDecoration(
-                    labelText: 'Full Name (Optional)',
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    prefixIcon: const Icon(Icons.person),
-                    hintText: 'Or we\'ll combine first and last name',
-                  ),
-                  autovalidateMode: AutovalidateMode.onUserInteraction,
-                ),
-                const SizedBox(height: 20),
-
                 // Username Field
                 TextFormField(
                   controller: _usernameController,
@@ -263,24 +240,6 @@ class _SignupScreenState extends State<SignupScreen> {
                     prefixIcon: const Icon(Icons.email),
                   ),
                   validator: (value) => Validators.validateEmail(value ?? ''),
-                  autovalidateMode: AutovalidateMode.onUserInteraction,
-                ),
-                const SizedBox(height: 20),
-
-                // Phone Number Field
-                TextFormField(
-                  controller: _phoneController,
-                  keyboardType: TextInputType.phone,
-                  decoration: InputDecoration(
-                    labelText: 'Phone Number (Optional)',
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    prefixIcon: const Icon(Icons.phone),
-                  ),
-                  validator: (value) => value != null && value.isNotEmpty
-                      ? Validators.validatePhone(value)
-                      : null,
                   autovalidateMode: AutovalidateMode.onUserInteraction,
                 ),
                 const SizedBox(height: 20),
